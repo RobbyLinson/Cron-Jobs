@@ -2,21 +2,13 @@ import { sql } from "@/lib/db";
 import { USER_ID } from "@/lib/constants";
 import { SyncButton } from "./components/SyncButton";
 import { ReviewQueue } from "./components/ReviewQueue";
+import { ApplicationsTable } from "./components/ApplicationsTable";
 
-const STATUS_COLORS: Record<string, string> = {
-  applied: "bg-blue-100 text-blue-800",
-  screening: "bg-yellow-100 text-yellow-800",
-  interviewing: "bg-purple-100 text-purple-800",
-  offer: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  ghosted: "bg-gray-100 text-gray-600",
-  withdrawn: "bg-gray-100 text-gray-600",
-};
 
 async function fetchAll() {
   const [apps, reviewRows, syncRow, statusCounts, responseRow, medianRow] = await Promise.all([
     sql`
-      select id, company, role, location, source, status, applied_at, last_contact_at, email_count
+      select id, company, role, location, source, status, applied_at, last_contact_at, email_count, notes
       from applications
       where user_id = ${USER_ID}::uuid
       order by updated_at desc
@@ -68,10 +60,6 @@ async function fetchAll() {
   return { apps, reviewRows, syncRow, statusCounts, responseRow, medianRow };
 }
 
-function fmt(date: string | null) {
-  if (!date) return "—";
-  return new Date(date).toLocaleDateString("en-IE", { day: "numeric", month: "short" });
-}
 
 function timeAgo(date: string) {
   const diff = Date.now() - new Date(date).getTime();
@@ -166,49 +154,7 @@ export default async function DashboardPage() {
         {/* Applications Table */}
         <section>
           <h2 className="text-lg font-semibold mb-3">Applications</h2>
-          {apps.length === 0 ? (
-            <p className="text-sm text-gray-500">No applications yet — run a sync to import your emails.</p>
-          ) : (
-            <div className="bg-white rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    {["Company", "Role", "Status", "Location", "Applied", "Last contact", "Emails"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {(apps as {
-                    id: string;
-                    company: string;
-                    role: string | null;
-                    location: string | null;
-                    status: string;
-                    applied_at: string | null;
-                    last_contact_at: string | null;
-                    email_count: number;
-                  }[]).map((app) => (
-                    <tr key={app.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{app.company}</td>
-                      <td className="px-4 py-3 text-gray-600">{app.role ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[app.status] ?? "bg-gray-100 text-gray-600"}`}>
-                          {app.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">{app.location ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-500">{fmt(app.applied_at)}</td>
-                      <td className="px-4 py-3 text-gray-500">{fmt(app.last_contact_at)}</td>
-                      <td className="px-4 py-3 text-gray-500">{app.email_count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ApplicationsTable applications={apps as import("./components/ApplicationsTable").Application[]} />
         </section>
 
       </div>

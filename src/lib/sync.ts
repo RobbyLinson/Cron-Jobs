@@ -3,6 +3,17 @@ import { USER_ID } from "./constants";
 import { fetchNewMessages } from "./gmail";
 import { classifyMessages, extractJobData, Classification, ExtractResult } from "./anthropic";
 
+// Senders whose emails are never job-application-related (job board marketing, alerts)
+const BLOCKED_SENDER_PATTERNS = [
+  "indeed.com",
+  "glassdoor.com",
+];
+
+function isBlockedSender(fromAddress: string): boolean {
+  const lower = fromAddress.toLowerCase();
+  return BLOCKED_SENDER_PATTERNS.some((pattern) => lower.includes(pattern));
+}
+
 const JOB_CLASSIFICATIONS = new Set<Classification>([
   "application_confirmation",
   "rejection",
@@ -59,8 +70,10 @@ export async function runSync(): Promise<SyncResult> {
       select gmail_message_id from emails where gmail_message_id = any(${msgIds})
     `;
     const seenSet = new Set(seen.map((r) => r.gmail_message_id as string));
-    const newMessages = rawMessages.filter((m) => !seenSet.has(m.id));
-    console.log("[sync] new (unseen):", newMessages.length, "already seen:", seenSet.size);
+    const unseenMessages = rawMessages.filter((m) => !seenSet.has(m.id));
+    const newMessages = unseenMessages.filter((m) => !isBlockedSender(m.fromAddress));
+    const blockedCount = unseenMessages.length - newMessages.length;
+    console.log("[sync] new (unseen):", unseenMessages.length, "already seen:", seenSet.size, "blocked senders:", blockedCount);
 
     if (newMessages.length === 0) {
       await markDone(syncRunId, 0, []);
