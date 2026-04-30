@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+const key = process.env.ANTHROPIC_API_KEY;
+console.log("[anthropic] key prefix:", key?.slice(0, 16) + "...");
 const client = new Anthropic();
 
 export type Classification =
@@ -24,33 +26,43 @@ export interface ExtractResult {
   reasoning: string;
 }
 
-// Pass 1 — cheap batch classification using subject + snippet only
+const CLASSIFY_BATCH_SIZE = 50;
+const CLASSIFY_SYSTEM =
+  "Classify emails related to job applications. For each email return one label: " +
+  "application_confirmation, rejection, interview_invite, offer, recruiter_outreach, or other. " +
+  "Only label as job-related when clearly about a specific job application or recruiter contact. " +
+  "Return a JSON array of objects with {index, classification}. No explanation.";
+
+// Pass 1 — cheap batch classification, chunked to avoid token limit on large inboxes
 export async function classifyMessages(
   messages: { id: string; subject: string; snippet: string; fromAddress: string }[]
 ): Promise<ClassifyResult[]> {
   if (messages.length === 0) return [];
 
+  const results: ClassifyResult[] = [];
+  for (let i = 0; i < messages.length; i += CLASSIFY_BATCH_SIZE) {
+    const batch = messages.slice(i, i + CLASSIFY_BATCH_SIZE);
+    console.log(`[classify] batch ${Math.floor(i / CLASSIFY_BATCH_SIZE) + 1}: messages ${i}–${i + batch.length - 1}`);
+    const batchResults = await classifyBatch(batch);
+    console.log(`[classify] batch done, job-related: ${batchResults.filter(r => r.classification !== "other").length}/${batch.length}`);
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+async function classifyBatch(
+  messages: { id: string; subject: string; snippet: string; fromAddress: string }[]
+): Promise<ClassifyResult[]> {
   const list = messages
-    .map(
-      (m, i) =>
-        `[${i}] FROM: ${m.fromAddress}\nSUBJECT: ${m.subject}\nSNIPPET: ${m.snippet}`
-    )
+    .map((m, i) => `[${i}] FROM: ${m.fromAddress}\nSUBJECT: ${m.subject}\nSNIPPET: ${m.snippet}`)
     .join("\n\n---\n\n");
 
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 1024,
-    system:
-      "Classify emails related to job applications. For each email return one label: " +
-      "application_confirmation, rejection, interview_invite, offer, recruiter_outreach, or other. " +
-      "Only label as job-related when clearly about a specific job application or recruiter contact. " +
-      "Return a JSON array of objects with {index, classification}. No explanation.",
-    messages: [
-      {
-        role: "user",
-        content: `Classify these ${messages.length} emails:\n\n${list}`,
-      },
-    ],
+    // 50 results * ~15 tokens each + overhead
+    max_tokens: 2048,
+    system: CLASSIFY_SYSTEM,
+    messages: [{ role: "user", content: `Classify these ${messages.length} emails:\n\n${list}` }],
   });
 
   const text = response.content[0].type === "text" ? response.content[0].text : "[]";
@@ -58,7 +70,6 @@ export async function classifyMessages(
   if (!jsonMatch) {
     return messages.map((m) => ({ messageId: m.id, classification: "other" as Classification }));
   }
-
   try {
     const parsed = JSON.parse(jsonMatch[0]) as { index: number; classification: Classification }[];
     return parsed.map((p) => ({ messageId: messages[p.index].id, classification: p.classification }));

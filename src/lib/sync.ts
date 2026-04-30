@@ -27,10 +27,13 @@ export async function runSync(): Promise<SyncResult> {
   const errors: string[] = [];
   let emailsProcessed = 0;
 
+  console.log("[sync] starting");
+
   // Record sync start
   const [{ id: syncRunId }] = await sql`
     insert into sync_runs (user_id, status) values (${USER_ID}::uuid, 'running') returning id
   `;
+  console.log("[sync] run id:", syncRunId);
 
   try {
     // 1. Last successful sync time
@@ -40,9 +43,11 @@ export async function runSync(): Promise<SyncResult> {
       order by started_at desc limit 1
     `;
     const since: Date | null = lastSync ? new Date(lastSync.started_at as string) : null;
+    console.log("[sync] fetching messages since:", since ?? "none (first run, last 30d)");
 
     // 2. Fetch inbox messages since last sync
     const rawMessages = await fetchNewMessages(since);
+    console.log("[sync] gmail returned:", rawMessages.length, "messages");
     if (rawMessages.length === 0) {
       await markDone(syncRunId, 0, []);
       return { emailsProcessed: 0, errors: [] };
@@ -55,6 +60,7 @@ export async function runSync(): Promise<SyncResult> {
     `;
     const seenSet = new Set(seen.map((r) => r.gmail_message_id as string));
     const newMessages = rawMessages.filter((m) => !seenSet.has(m.id));
+    console.log("[sync] new (unseen):", newMessages.length, "already seen:", seenSet.size);
 
     if (newMessages.length === 0) {
       await markDone(syncRunId, 0, []);
@@ -62,6 +68,7 @@ export async function runSync(): Promise<SyncResult> {
     }
 
     // 4. Pass 1 — classify (single batched call)
+    console.log("[sync] pass 1: classifying", newMessages.length, "messages");
     const classifications = await classifyMessages(
       newMessages.map((m) => ({
         id: m.id,
@@ -73,9 +80,21 @@ export async function runSync(): Promise<SyncResult> {
     const classMap = new Map(classifications.map((c) => [c.messageId, c.classification]));
 
     const jobMessages = newMessages.filter((m) => JOB_CLASSIFICATIONS.has(classMap.get(m.id)!));
+    // Cap per run so the route doesn't timeout — remainder picked up next sync
+    const EXTRACT_CAP = 50;
+    const toExtract = jobMessages.slice(0, EXTRACT_CAP);
+    console.log(
+      "[sync] pass 1 results — job-related:", jobMessages.length,
+      "other:", newMessages.length - jobMessages.length,
+      "| extracting this run:", toExtract.length
+    );
+    for (const msg of newMessages) {
+      console.log(`  [${classMap.get(msg.id) ?? "other"}] ${msg.subject}`);
+    }
 
     // 5. Pass 2 — extract + upsert per job-related message
-    for (const msg of jobMessages) {
+    for (const msg of toExtract) {
+      console.log("[sync] pass 2: extracting", msg.subject);
       try {
         const extracted = await extractJobData({
           subject: msg.subject,
@@ -85,12 +104,19 @@ export async function runSync(): Promise<SyncResult> {
         });
 
         if (!extracted) {
+          console.log("[sync] extract returned null for", msg.id);
           errors.push(`${msg.id}: extract returned null`);
           continue;
         }
+        console.log(
+          "[sync] extracted — company:", extracted.company,
+          "| classification:", extracted.classification,
+          "| confidence:", extracted.confidence
+        );
 
         // 6. Match or create application
         const { applicationId, ambiguous } = await matchOrCreateApplication(msg.threadId, extracted);
+        console.log("[sync] application id:", applicationId, ambiguous ? "(ambiguous match)" : "");
 
         const needsReview = extracted.confidence < 0.7 || ambiguous;
 
@@ -121,8 +147,11 @@ export async function runSync(): Promise<SyncResult> {
         await updateApplication(applicationId, extracted, msg.receivedAt);
 
         emailsProcessed++;
+        console.log("[sync] upserted email + updated application");
       } catch (err) {
-        errors.push(`${msg.id}: ${err instanceof Error ? err.message : String(err)}`);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error("[sync] error on message", msg.id, ":", errMsg);
+        errors.push(`${msg.id}: ${errMsg}`);
       }
     }
 
@@ -135,8 +164,10 @@ export async function runSync(): Promise<SyncResult> {
     `;
 
     await markDone(syncRunId, emailsProcessed, errors);
+    console.log("[sync] done — processed:", emailsProcessed, "errors:", errors.length);
     return { emailsProcessed, errors };
   } catch (err) {
+    console.error("[sync] fatal error:", err);
     const msg = err instanceof Error ? err.message : String(err);
     await sql`
       update sync_runs
