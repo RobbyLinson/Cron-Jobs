@@ -45,13 +45,7 @@ export async function classifyMessages(
   const results: ClassifyResult[] = [];
   for (let i = 0; i < messages.length; i += CLASSIFY_BATCH_SIZE) {
     const batch = messages.slice(i, i + CLASSIFY_BATCH_SIZE);
-    console.log(
-      `[classify] batch ${Math.floor(i / CLASSIFY_BATCH_SIZE) + 1}: messages ${i}–${i + batch.length - 1}`,
-    );
     const batchResults = await classifyBatch(batch);
-    console.log(
-      `[classify] batch done, job-related: ${batchResults.filter((r) => r.classification !== "other").length}/${batch.length}`,
-    );
     results.push(...batchResults);
   }
   return results;
