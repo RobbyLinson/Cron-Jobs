@@ -2,6 +2,7 @@ import { sql } from "./db";
 import { USER_ID } from "./constants";
 import { fetchNewMessages } from "./gmail";
 import { classifyMessages, extractJobData, Classification, ExtractResult } from "./anthropic";
+import { sendDigest } from "./digest";
 
 // Senders whose emails are never job-application-related (job board marketing, alerts)
 const BLOCKED_SENDER_PATTERNS = [
@@ -178,6 +179,9 @@ export async function runSync(): Promise<SyncResult> {
 
     await markDone(syncRunId, emailsProcessed, errors);
     console.log("[sync] done — processed:", emailsProcessed, "errors:", errors.length);
+    await sendDigest(emailsProcessed).catch((err) =>
+      console.error("[sync] digest failed:", err instanceof Error ? err.message : err)
+    );
     return { emailsProcessed, errors };
   } catch (err) {
     console.error("[sync] fatal error:", err);
