@@ -110,6 +110,7 @@ export default async function DashboardPage() {
               <span>Never synced</span>
             )}
             <SyncButton />
+            <a href="/api/auth/logout" className="text-gray-400 hover:text-gray-600">Sign out</a>
           </div>
         </div>
 
