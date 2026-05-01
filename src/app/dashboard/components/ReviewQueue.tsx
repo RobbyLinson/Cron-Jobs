@@ -27,7 +27,7 @@ export function ReviewQueue({ items: initial }: { items: ReviewItem[] }) {
     return (
       <section>
         <h2 className="text-lg font-semibold mb-3">Review Queue</h2>
-        <p className="text-sm text-gray-500">Nothing needs review.</p>
+        <p className="text-sm text-gray-700">Nothing needs review.</p>
       </section>
     );
   }
@@ -54,7 +54,7 @@ export function ReviewQueue({ items: initial }: { items: ReviewItem[] }) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">
-        Review Queue <span className="text-sm font-normal text-gray-500">({items.length})</span>
+        Review Queue <span className="text-sm font-normal text-gray-700">({items.length})</span>
       </h2>
       <div className="space-y-3">
         {items.map((item) => {
@@ -64,7 +64,7 @@ export function ReviewQueue({ items: initial }: { items: ReviewItem[] }) {
             <div key={item.email_id} className="border border-amber-200 bg-amber-50 rounded-lg p-4">
               <div className="text-sm text-gray-700 mb-3">
                 <span className="font-medium">{item.subject}</span>
-                <span className="text-gray-400 ml-2">· {item.from_address}</span>
+                <span className="text-gray-600 ml-2">· {item.from_address}</span>
                 <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
                   {item.classification} ({Math.round(item.confidence * 100)}%)
                 </span>

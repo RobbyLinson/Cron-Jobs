@@ -103,7 +103,7 @@ export default async function DashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Job Tracker</h1>
-          <div className="flex items-center gap-4 text-sm text-gray-500">
+          <div className="flex items-center gap-4 text-sm text-gray-700">
             {lastSync ? (
               <span>Last sync {timeAgo(lastSync.started_at)} · {lastSync.emails_processed} emails</span>
             ) : (
@@ -123,25 +123,25 @@ export default async function DashboardPage() {
           ].map(({ label, value }) => (
             <div key={label} className="bg-white rounded-lg border p-4">
               <div className="text-2xl font-bold text-gray-900">{value}</div>
-              <div className="text-sm text-gray-500 mt-1">{label}</div>
+              <div className="text-sm text-gray-700 mt-1">{label}</div>
             </div>
           ))}
         </div>
 
         {/* Funnel */}
         <div className="bg-white rounded-lg border p-4">
-          <h2 className="text-sm font-medium text-gray-500 mb-3">Funnel</h2>
+          <h2 className="text-sm font-medium text-gray-700 mb-3">Funnel</h2>
           <div className="flex items-center gap-2 flex-wrap">
             {["applied", "screening", "interviewing", "offer"].map((s, i, arr) => (
               <div key={s} className="flex items-center gap-2">
                 <div className="text-center">
                   <div className="text-xl font-bold text-gray-900">{byStatus[s] ?? 0}</div>
-                  <div className="text-xs text-gray-500 capitalize">{s}</div>
+                  <div className="text-xs text-gray-700 capitalize">{s}</div>
                 </div>
-                {i < arr.length - 1 && <span className="text-gray-300 text-lg">→</span>}
+                {i < arr.length - 1 && <span className="text-gray-500 text-lg">→</span>}
               </div>
             ))}
-            <div className="ml-auto flex gap-4 text-sm text-gray-500">
+            <div className="ml-auto flex gap-4 text-sm text-gray-700">
               <span>{byStatus.rejected ?? 0} rejected</span>
               <span>{byStatus.ghosted ?? 0} ghosted</span>
             </div>

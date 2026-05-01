@@ -30,7 +30,7 @@ export interface RawMessage {
 export async function fetchNewMessages(since: Date | null): Promise<RawMessage[]> {
   const gmail = await getGmailClient();
 
-  let q = "in:inbox";
+  let q = "in:inbox category:primary";
   if (since) {
     // Gmail after: filter uses YYYY/MM/DD
     const dateStr = since.toISOString().split("T")[0].replace(/-/g, "/");
