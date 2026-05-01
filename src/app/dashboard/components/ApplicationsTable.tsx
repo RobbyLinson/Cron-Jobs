@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Pencil, Trash2, Check, X, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { updateApplication, deleteApplication } from "../actions";
 
@@ -140,7 +140,7 @@ export function ApplicationsTable({ applications: initial }: { applications: App
           {sorted.map((app) => {
             const isEditing = editingId === app.id;
             return (
-              <>
+              <React.Fragment key={app.id}>
                 <tr key={app.id} className={isEditing ? "bg-blue-50/40" : "hover:bg-gray-50"}>
                   {/* Company */}
                   <td className="px-4 py-3 font-medium text-gray-900">
@@ -222,7 +222,7 @@ export function ApplicationsTable({ applications: initial }: { applications: App
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             );
           })}
         </tbody>
