@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSync } from "@/lib/sync";
 
+// Hobby plan max is 60s; Pro allows 300s — raise this if you upgrade
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (secret) {
