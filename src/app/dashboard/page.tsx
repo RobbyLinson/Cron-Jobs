@@ -1,5 +1,7 @@
 import { sql } from "@/lib/db";
 import { USER_ID } from "@/lib/constants";
+
+export const dynamic = "force-dynamic";
 import { SyncButton } from "./components/SyncButton";
 import { ReviewQueue } from "./components/ReviewQueue";
 import { ApplicationsTable } from "./components/ApplicationsTable";
